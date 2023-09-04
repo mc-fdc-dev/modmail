@@ -1,0 +1,31 @@
+name: Release and Test
+
+on:
+  push:
+    tags:
+    - "v*.*.*"
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Install depend
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libssl3 pkg-config
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Build binary
+      run: |
+        SQLX_OFFLINE=true cargo build -r
+        mv target/release/modmail modmail.bin
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: modmail.bin

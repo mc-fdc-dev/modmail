@@ -3,8 +3,11 @@ use std::{env, error::Error, sync::Arc};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{Event, Intents, Shard, ShardId};
 use twilight_http::Client as HttpClient;
-use twilight_model::id::{marker::{ChannelMarker, GuildMarker}, Id};
-use twilight_util::builder::embed::EmbedBuilder;
+use twilight_model::id::{
+    marker::{ChannelMarker, GuildMarker, UserMarker},
+    Id,
+};
+use twilight_util::builder::embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -82,13 +85,35 @@ async fn handle_event(
                     }
                 };
                 println!("channel_id");
+                let mut avatar_url = String::new();
+                if let Some(avatar) = msg.author.avatar {
+                    avatar_url = format!(
+                        "https://cdn.discordapp.com/avatars/{}/{}.png",
+                        msg.author.id, avatar
+                    )
+                }
+                let image_source = ImageSource::url(avatar_url)?;
                 let embed = EmbedBuilder::new()
                     .description(&msg.content)
+                    .author(EmbedAuthorBuilder::new(msg.author.name.clone()).icon_url(image_source))
                     .build();
-                http.create_message(channel_id)
-                    .embeds(&[embed])?
-                    .await?;
+                http.create_message(channel_id).embeds(&[embed])?.await?;
             } else {
+                let parent_id = env::var("CATEGORY_ID")?.parse()?;
+                let parent_id: Id<ChannelMarker> = Id::new(parent_id);
+                let channel = cache.channel(msg.channel_id).unwrap();
+                if let Some(base_parent_id) = channel.parent_id {
+                    if parent_id == base_parent_id {
+                        let user_id: u64 = channel.topic.clone().unwrap().parse()?;
+                        let user_id: Id<UserMarker> = Id::new(user_id);
+                        http.create_private_channel(user_id).await?;
+                        let channel_id: Id<ChannelMarker> = Id::new(user_id.into());
+                        http.create_message(channel_id)
+                            .content(&msg.content)?
+                            .await?;
+                        println!("Sended");
+                    }
+                }
             }
         }
         Event::Ready(_) => {

@@ -106,12 +106,11 @@ async fn handle_event(
                     if parent_id == base_parent_id {
                         let user_id: u64 = channel.topic.clone().unwrap().parse()?;
                         let user_id: Id<UserMarker> = Id::new(user_id);
-                        http.create_private_channel(user_id).await?;
-                        let channel_id: Id<ChannelMarker> = Id::new(user_id.into());
-                        http.create_message(channel_id)
+                        let channel = http.create_private_channel(user_id).await?.model().await?;
+                        println!("Create private channel");
+                        http.create_message(channel.id)
                             .content(&msg.content)?
                             .await?;
-                        println!("Sended");
                     }
                 }
             }

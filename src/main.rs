@@ -4,13 +4,17 @@ use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{Event, Intents, Shard, ShardId};
 use twilight_http::Client as HttpClient;
 use twilight_model::id::{marker::{ChannelMarker, GuildMarker}, Id};
+use twilight_util::builder::embed::EmbedBuilder;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     dotenv().ok();
     let token = env::var("DISCORD_TOKEN")?;
 
-    let intents = Intents::GUILD_MESSAGES | Intents::DIRECT_MESSAGES | Intents::MESSAGE_CONTENT;
+    let intents = Intents::GUILD_MESSAGES
+        | Intents::DIRECT_MESSAGES
+        | Intents::MESSAGE_CONTENT
+        | Intents::GUILDS;
 
     let mut shard = Shard::new(ShardId::ONE, token.clone(), intents);
 
@@ -18,7 +22,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let cache = Arc::new(
         InMemoryCache::builder()
-            .resource_types(ResourceType::MESSAGE | ResourceType::GUILD)
+            .resource_types(ResourceType::MESSAGE | ResourceType::CHANNEL)
             .build(),
     );
 
@@ -53,37 +57,39 @@ async fn handle_event(
             if msg.author.bot {
                 return Ok(());
             }
-            if msg.guild_id.is_some() {
-                return Ok(());
+            if msg.guild_id.is_none() {
+                let category_id: u64 = env::var("CATEGORY_ID")?.parse()?;
+                let parent_id: Id<ChannelMarker> = Id::new(category_id);
+                println!("{:?}", cache.iter().channels().count());
+                let channels = cache.iter().channels().filter(|channel| {
+                    channel.topic == Some(msg.author.id.to_string())
+                        && channel.parent_id == Some(parent_id)
+                });
+                let guild_id: u64 = env::var("GUILD_ID")?.parse()?;
+                let guild_id: Id<GuildMarker> = Id::new(guild_id);
+                let channel_id: Id<ChannelMarker> = match channels.last() {
+                    Some(channel) => channel.id,
+                    None => {
+                        let channel = http
+                            .create_guild_channel(guild_id, &msg.author.name.clone())?
+                            .parent_id(parent_id)
+                            .topic(&msg.author.id.to_string())?
+                            .await?
+                            .model()
+                            .await?;
+                        println!("Create channel");
+                        channel.id
+                    }
+                };
+                println!("channel_id");
+                let embed = EmbedBuilder::new()
+                    .description(&msg.content)
+                    .build();
+                http.create_message(channel_id)
+                    .embeds(&[embed])?
+                    .await?;
+            } else {
             }
-            let category_id: u64 = env::var("CATEGORY_ID")?.parse()?;
-            let parent_id: Id<ChannelMarker> = Id::new(category_id);
-            let channels = cache.iter().channels().filter(|channel| {
-                channel.topic == Some(msg.author.id.to_string())
-                    && channel.parent_id == Some(parent_id)
-            });
-            let guild_id: u64 = env::var("GUILD_ID")?.parse()?;
-            let guild_id: Id<GuildMarker> = Id::new(guild_id);
-            let channel_id: Id<ChannelMarker> = match channels.last() {
-                Some(channel) => {
-                    channel.id
-                },
-                None => {
-                    let channel = http
-                        .create_guild_channel(guild_id, &msg.author.name.clone())?
-                        .parent_id(parent_id)
-                        .topic(&msg.author.id.to_string())?
-                        .await?
-                        .model()
-                        .await?;
-                    println!("Create channel");
-                    channel.id
-                }
-            };
-            println!("channel_id");
-            http.create_message(channel_id)
-                .content(&msg.content)?
-                .await?;
         }
         Event::Ready(_) => {
             println!("Shard is ready");

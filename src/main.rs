@@ -3,11 +3,14 @@ use std::{env, error::Error, sync::Arc};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{Event, Intents, Shard, ShardId};
 use twilight_http::Client as HttpClient;
-use twilight_model::id::{
-    marker::{ChannelMarker, GuildMarker, UserMarker},
-    Id,
+use twilight_model::{
+    id::{marker::{ChannelMarker, GuildMarker, UserMarker}, Id},
+    application::{command::CommandType, interaction::InteractionData},
 };
-use twilight_util::builder::embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource};
+use twilight_util::builder::{
+    embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource},
+    command::CommandBuilder,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -28,6 +31,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             .resource_types(ResourceType::MESSAGE | ResourceType::CHANNEL | ResourceType::GUILD)
             .build(),
     );
+    create_application_commands(Arc::clone(&http)).await?;
 
     loop {
         let event = match shard.next_event().await {
@@ -47,6 +51,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         tokio::spawn(handle_event(event, Arc::clone(&http), Arc::clone(&cache)));
     }
 
+    Ok(())
+}
+
+async fn create_application_commands(
+    http: Arc<HttpClient>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let application_id = {
+        let response = http.current_user_application().await?;
+        response.model().await?.id
+    };
+    let interaction = http.interaction(application_id);
+    let commands = [
+        CommandBuilder::new("ping", "bot ping", CommandType::ChatInput)
+            .build()
+    ];
+    interaction.set_global_commands(&commands).await?;
     Ok(())
 }
 
@@ -128,6 +148,15 @@ async fn handle_event(
         }
         Event::Ready(_) => {
             println!("Shard is ready");
+        }
+        Event::InteractionCreate(interaction) => {
+            if let Some(data) = interaction.data {
+                if let InteractionData::ApplicationCommand(command) = data {
+                    if command.name == "ping" {
+                        http.interaction(
+                    }
+                }
+            }
         }
         _ => {}
     }

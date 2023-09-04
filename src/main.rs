@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let cache = Arc::new(
         InMemoryCache::builder()
-            .resource_types(ResourceType::MESSAGE | ResourceType::CHANNEL)
+            .resource_types(ResourceType::MESSAGE | ResourceType::CHANNEL | ResourceType::GUILD)
             .build(),
     );
 

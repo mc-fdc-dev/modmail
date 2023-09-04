@@ -108,9 +108,20 @@ async fn handle_event(
                         let user_id: Id<UserMarker> = Id::new(user_id);
                         let channel = http.create_private_channel(user_id).await?.model().await?;
                         println!("Create private channel");
-                        http.create_message(channel.id)
-                            .content(&msg.content)?
-                            .await?;
+                        let guild = cache.guild(msg.guild_id.unwrap()).unwrap();
+                        let icon_url = format!(
+                            "https://cdn.discordapp.com/icons/{}/{}.png",
+                            guild.id(),
+                            guild.icon().unwrap()
+                        );
+                        let embed = EmbedBuilder::new()
+                            .description(&msg.content)
+                            .author(
+                                EmbedAuthorBuilder::new("運営")
+                                    .icon_url(ImageSource::url(icon_url)?),
+                            )
+                            .build();
+                        http.create_message(channel.id).embeds(&[embed])?.await?;
                     }
                 }
             }

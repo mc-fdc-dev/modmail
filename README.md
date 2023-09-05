@@ -5,3 +5,9 @@
 - `DISCORD_TOKEN` - ボットのトークン
 - `CATEGORY_ID` - カテゴリーのID
 - `GUILD_ID` - サーバのID
+
+## 実行
+メモリーはあまり食いません。
+```sh
+cargo run --release
+```

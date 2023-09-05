@@ -79,10 +79,8 @@ async fn create_application_commands(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let interaction = client.http.interaction(client.application_id);
     let commands = [
-        CommandBuilder::new("ping", "bot ping", CommandType::ChatInput)
-            .build(),
-        CommandBuilder::new("close", "close some ticket", CommandType::ChatInput)
-            .build(),
+        CommandBuilder::new("ping", "bot ping", CommandType::ChatInput).build(),
+        CommandBuilder::new("close", "close some ticket", CommandType::ChatInput).build(),
     ];
     interaction.set_global_commands(&commands).await?;
     Ok(())
@@ -92,9 +90,10 @@ async fn handle_event(
     event: Event,
     client: Arc<Client>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let http = &client.http;
-    let cache = &client.cache;
     match event {
+        Event::Ready(_) => {
+            println!("Shard is ready");
+        }
         Event::MessageCreate(msg) => {
             if msg.author.bot {
                 return Ok(());
@@ -103,8 +102,7 @@ async fn handle_event(
                 // DM to moderator
                 let category_id: u64 = env::var("CATEGORY_ID")?.parse()?;
                 let parent_id: Id<ChannelMarker> = Id::new(category_id);
-                println!("{:?}", cache.iter().channels().count());
-                let channels = cache.iter().channels().filter(|channel| {
+                let channels = client.cache.iter().channels().filter(|channel| {
                     channel.topic == Some(msg.author.id.to_string())
                         && channel.parent_id == Some(parent_id)
                 });
@@ -113,18 +111,17 @@ async fn handle_event(
                 let channel_id: Id<ChannelMarker> = match channels.last() {
                     Some(channel) => channel.id,
                     None => {
-                        let channel = http
+                        let channel = client
+                            .http
                             .create_guild_channel(guild_id, &msg.author.name.clone())?
                             .parent_id(parent_id)
                             .topic(&msg.author.id.to_string())?
                             .await?
                             .model()
                             .await?;
-                        println!("Create channel");
                         channel.id
                     }
                 };
-                println!("channel_id");
                 let mut avatar_url = String::new();
                 if let Some(avatar) = msg.author.avatar {
                     avatar_url = format!(
@@ -138,19 +135,27 @@ async fn handle_event(
                     .author(EmbedAuthorBuilder::new(msg.author.name.clone()).icon_url(image_source))
                     .timestamp(msg.timestamp)
                     .build();
-                http.create_message(channel_id).embeds(&[embed])?.await?;
+                client
+                    .http
+                    .create_message(channel_id)
+                    .embeds(&[embed])?
+                    .await?;
             } else {
                 // Moderator to DM
                 let parent_id = env::var("CATEGORY_ID")?.parse()?;
                 let parent_id: Id<ChannelMarker> = Id::new(parent_id);
-                let channel = cache.channel(msg.channel_id).unwrap();
+                let channel = client.cache.channel(msg.channel_id).unwrap();
                 if let Some(base_parent_id) = channel.parent_id {
                     if parent_id == base_parent_id {
                         let user_id: u64 = channel.topic.clone().unwrap().parse()?;
                         let user_id: Id<UserMarker> = Id::new(user_id);
-                        let channel = http.create_private_channel(user_id).await?.model().await?;
-                        println!("Create private channel");
-                        let guild = cache.guild(msg.guild_id.unwrap()).unwrap();
+                        let channel = client
+                            .http
+                            .create_private_channel(user_id)
+                            .await?
+                            .model()
+                            .await?;
+                        let guild = client.cache.guild(msg.guild_id.unwrap()).unwrap();
                         let icon_url = format!(
                             "https://cdn.discordapp.com/icons/{}/{}.png",
                             guild.id(),
@@ -164,21 +169,38 @@ async fn handle_event(
                             )
                             .timestamp(msg.timestamp)
                             .build();
-                        http.create_message(channel.id).embeds(&[embed])?.await?;
+                        client
+                            .http
+                            .create_message(channel.id)
+                            .embeds(&[embed])?
+                            .await?;
                     }
                 }
             }
         }
-        Event::Ready(_) => {
-            println!("Shard is ready");
-        }
         Event::InteractionCreate(interaction) => {
-            if let Some(data) = &interaction.data {
-                if let InteractionData::ApplicationCommand(command) = data {
-                    if command.name == "ping" {
-                        let interaction_http = http.interaction(client.application_id);
+            if let Some(InteractionData::ApplicationCommand(command)) = &interaction.data {
+                if command.name == "ping" {
+                    let interaction_http = client.http.interaction(client.application_id);
+                    let data = InteractionResponseDataBuilder::new()
+                        .content("Pong!".to_string())
+                        .build();
+                    let response = InteractionResponse {
+                        kind: InteractionResponseType::ChannelMessageWithSource,
+                        data: Some(data),
+                    };
+                    interaction_http
+                        .create_response(interaction.id, &interaction.token, &response)
+                        .await?;
+                } else if command.name == "close" {
+                    let parent_id: u64 = env::var("CATEGORY_ID")?.parse()?;
+                    let parent_id: Id<ChannelMarker> = Id::new(parent_id);
+                    let interaction_http = client.http.interaction(client.application_id);
+                    if interaction.channel.clone().unwrap().parent_id != Some(parent_id) {
                         let data = InteractionResponseDataBuilder::new()
-                            .content("Pong!".to_string())
+                            .content(
+                                "このコマンドはチケットチャンネルでのみ使用できます。".to_string(),
+                            )
                             .build();
                         let response = InteractionResponse {
                             kind: InteractionResponseType::ChannelMessageWithSource,
@@ -187,33 +209,43 @@ async fn handle_event(
                         interaction_http
                             .create_response(interaction.id, &interaction.token, &response)
                             .await?;
-
-                    } else if command.name == "close" {
-                        let interaction_http = http.interaction(client.application_id);
-                        let channel = interaction.channel.clone().unwrap();
-                        let userid = channel.topic.unwrap().parse::<u64>().unwrap();
-                        let userid: Id<UserMarker> = Id::new(userid);
-                        let channel = http.create_private_channel(userid).await?.model().await?;
-                        let embed = EmbedBuilder::new()
+                        return Ok(());
+                    }
+                    let channel = interaction.channel.clone().unwrap();
+                    let userid = channel.topic.unwrap().parse::<u64>().unwrap();
+                    let userid: Id<UserMarker> = Id::new(userid);
+                    let channel = client
+                        .http
+                        .create_private_channel(userid)
+                        .await?
+                        .model()
+                        .await?;
+                    let embed = EmbedBuilder::new()
                             .title("問い合わせ")
                             .description(
                                 "問い合わせを運営が終了しました\nまだ問題解決していない場合はお手数ですが、再度お問い合わせをお願いします。"
                             )
+                            .color(0xf50505)
                             .build();
-                        http.create_message(channel.id)
-                            .embeds(&[embed])?
-                            .await?;
-                        let data = InteractionResponseDataBuilder::new()
-                            .content("お問い合わせを閉じました。".to_string())
-                            .build();
-                        let response = InteractionResponse {
-                            kind: InteractionResponseType::ChannelMessageWithSource,
-                            data: Some(data),
-                        };
-                        interaction_http
-                            .create_response(interaction.id, &interaction.token, &response)
-                            .await?;
-                    }
+                    client
+                        .http
+                        .create_message(channel.id)
+                        .embeds(&[embed])?
+                        .await?;
+                    let data = InteractionResponseDataBuilder::new()
+                        .content("お問い合わせを閉じました。".to_string())
+                        .build();
+                    let response = InteractionResponse {
+                        kind: InteractionResponseType::ChannelMessageWithSource,
+                        data: Some(data),
+                    };
+                    interaction_http
+                        .create_response(interaction.id, &interaction.token, &response)
+                        .await?;
+                    client
+                        .http
+                        .delete_channel(interaction.channel.clone().unwrap().id)
+                        .await?;
                 }
             }
         }

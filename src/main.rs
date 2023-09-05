@@ -78,7 +78,12 @@ async fn create_application_commands(
     client: Arc<Client>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let interaction = client.http.interaction(client.application_id);
-    let commands = [CommandBuilder::new("ping", "bot ping", CommandType::ChatInput).build()];
+    let commands = [
+        CommandBuilder::new("ping", "bot ping", CommandType::ChatInput)
+            .build(),
+        CommandBuilder::new("close", "close some ticket", CommandType::ChatInput)
+            .build(),
+    ];
     interaction.set_global_commands(&commands).await?;
     Ok(())
 }
@@ -174,6 +179,32 @@ async fn handle_event(
                         let interaction_http = http.interaction(client.application_id);
                         let data = InteractionResponseDataBuilder::new()
                             .content("Pong!".to_string())
+                            .build();
+                        let response = InteractionResponse {
+                            kind: InteractionResponseType::ChannelMessageWithSource,
+                            data: Some(data),
+                        };
+                        interaction_http
+                            .create_response(interaction.id, &interaction.token, &response)
+                            .await?;
+
+                    } else if command.name == "close" {
+                        let interaction_http = http.interaction(client.application_id);
+                        let channel = interaction.channel.clone().unwrap();
+                        let userid = channel.topic.unwrap().parse::<u64>().unwrap();
+                        let userid: Id<UserMarker> = Id::new(userid);
+                        let channel = http.create_private_channel(userid).await?.model().await?;
+                        let embed = EmbedBuilder::new()
+                            .title("問い合わせ")
+                            .description(
+                                "問い合わせを運営が終了しました\nまだ問題解決していない場合はお手数ですが、再度お問い合わせをお願いします。"
+                            )
+                            .build();
+                        http.create_message(channel.id)
+                            .embeds(&[embed])?
+                            .await?;
+                        let data = InteractionResponseDataBuilder::new()
+                            .content("お問い合わせを閉じました。".to_string())
                             .build();
                         let response = InteractionResponse {
                             kind: InteractionResponseType::ChannelMessageWithSource,

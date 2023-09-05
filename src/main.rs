@@ -137,11 +137,14 @@ async fn handle_event(
                     )
                 }
                 let image_source = ImageSource::url(avatar_url)?;
-                let embed = EmbedBuilder::new()
+                let mut embed = EmbedBuilder::new()
                     .description(&msg.content)
                     .author(EmbedAuthorBuilder::new(msg.author.name.clone()).icon_url(image_source))
-                    .timestamp(msg.timestamp)
-                    .build();
+                    .timestamp(msg.timestamp);
+                if !msg.attachments.is_empty() {
+                    embed = embed.image(ImageSource::url(msg.attachments[0].url.clone())?);
+                }
+                let embed = embed.build();
                 client
                     .http
                     .create_message(channel_id)
@@ -168,14 +171,17 @@ async fn handle_event(
                             guild.id(),
                             guild.icon().unwrap()
                         );
-                        let embed = EmbedBuilder::new()
+                        let mut embed = EmbedBuilder::new()
                             .description(&msg.content)
                             .author(
                                 EmbedAuthorBuilder::new("運営(Moderator)")
                                     .icon_url(ImageSource::url(icon_url)?),
                             )
-                            .timestamp(msg.timestamp)
-                            .build();
+                            .timestamp(msg.timestamp);
+                        if !msg.attachments.is_empty() {
+                            embed = embed.image(ImageSource::url(msg.attachments[0].url.clone())?);
+                        }
+                        let embed = embed.build();
                         client
                             .http
                             .create_message(channel.id)

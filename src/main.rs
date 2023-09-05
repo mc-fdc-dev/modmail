@@ -4,13 +4,24 @@ use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{Event, Intents, Shard, ShardId};
 use twilight_http::Client as HttpClient;
 use twilight_model::{
-    id::{marker::{ChannelMarker, GuildMarker, UserMarker}, Id},
     application::{command::CommandType, interaction::InteractionData},
+    http::interaction::{InteractionResponse, InteractionResponseType},
+    id::{
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
+        Id,
+    },
 };
 use twilight_util::builder::{
-    embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource},
     command::CommandBuilder,
+    embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource},
+    InteractionResponseDataBuilder,
 };
+
+struct Client {
+    pub http: Arc<HttpClient>,
+    pub cache: Arc<InMemoryCache>,
+    pub application_id: Id<ApplicationMarker>,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -31,7 +42,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             .resource_types(ResourceType::MESSAGE | ResourceType::CHANNEL | ResourceType::GUILD)
             .build(),
     );
-    create_application_commands(Arc::clone(&http)).await?;
+    let application_id = {
+        let response = http.current_user_application().await?;
+        response.model().await?.id
+    };
+    let client = Arc::new(Client {
+        http: Arc::clone(&http),
+        cache: Arc::clone(&cache),
+        application_id,
+    });
+    create_application_commands(Arc::clone(&client)).await?;
 
     loop {
         let event = match shard.next_event().await {
@@ -48,33 +68,33 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         };
         cache.update(&event);
 
-        tokio::spawn(handle_event(event, Arc::clone(&http), Arc::clone(&cache)));
+        tokio::spawn(handle_event(event, Arc::clone(&client)));
     }
 
     Ok(())
 }
 
 async fn create_application_commands(
-    http: Arc<HttpClient>,
+    client: Arc<Client>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    /*
     let application_id = {
         let response = http.current_user_application().await?;
         response.model().await?.id
     };
-    let interaction = http.interaction(application_id);
-    let commands = [
-        CommandBuilder::new("ping", "bot ping", CommandType::ChatInput)
-            .build()
-    ];
+    */
+    let interaction = client.http.interaction(client.application_id);
+    let commands = [CommandBuilder::new("ping", "bot ping", CommandType::ChatInput).build()];
     interaction.set_global_commands(&commands).await?;
     Ok(())
 }
 
 async fn handle_event(
     event: Event,
-    http: Arc<HttpClient>,
-    cache: Arc<InMemoryCache>,
+    client: Arc<Client>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let http = &client.http;
+    let cache = &client.cache;
     match event {
         Event::MessageCreate(msg) => {
             if msg.author.bot {
@@ -150,10 +170,20 @@ async fn handle_event(
             println!("Shard is ready");
         }
         Event::InteractionCreate(interaction) => {
-            if let Some(data) = interaction.data {
+            if let Some(data) = &interaction.data {
                 if let InteractionData::ApplicationCommand(command) = data {
                     if command.name == "ping" {
-                        http.interaction(
+                        let interaction_http = http.interaction(client.application_id);
+                        let data = InteractionResponseDataBuilder::new()
+                            .content("Pong!".to_string())
+                            .build();
+                        let response = InteractionResponse {
+                            kind: InteractionResponseType::ChannelMessageWithSource,
+                            data: Some(data),
+                        };
+                        interaction_http
+                            .create_response(interaction.id, &interaction.token, &response)
+                            .await?;
                     }
                 }
             }

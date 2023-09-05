@@ -6,14 +6,14 @@ use twilight_http::Client as HttpClient;
 use twilight_model::{
     application::{
         command::CommandType,
-        interaction::{InteractionData, application_command::CommandOptionValue},
+        interaction::{application_command::CommandOptionValue, InteractionData},
     },
+    guild::Permissions,
     http::interaction::{InteractionResponse, InteractionResponseType},
     id::{
         marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
         Id,
     },
-    guild::Permissions,
 };
 use twilight_util::builder::{
     command::{CommandBuilder, UserBuilder},
@@ -186,9 +186,9 @@ async fn handle_event(
             }
         }
         Event::InteractionCreate(interaction) => {
+            let interaction_http = client.http.interaction(client.application_id);
             if let Some(InteractionData::ApplicationCommand(command)) = &interaction.data {
                 if command.name == "ping" {
-                    let interaction_http = client.http.interaction(client.application_id);
                     let data = InteractionResponseDataBuilder::new()
                         .content("Pong!".to_string())
                         .build();
@@ -202,7 +202,6 @@ async fn handle_event(
                 } else if command.name == "close" {
                     let parent_id: u64 = env::var("CATEGORY_ID")?.parse()?;
                     let parent_id: Id<ChannelMarker> = Id::new(parent_id);
-                    let interaction_http = client.http.interaction(client.application_id);
                     if interaction.channel.clone().unwrap().parent_id != Some(parent_id) {
                         let data = InteractionResponseDataBuilder::new()
                             .content(
@@ -254,25 +253,44 @@ async fn handle_event(
                         .delete_channel(interaction.channel.clone().unwrap().id)
                         .await?;
                 } else if command.name == "kick" {
-                    let interaction_http = client.http.interaction(client.application_id);
-                    match command.options.get(0).unwrap().value {
-                        CommandOptionValue::User(userid) => {
-                            client
-                                .http
-                                .remove_guild_member(interaction.guild_id.unwrap(), userid)
-                                .await?;
-                            let data = InteractionResponseDataBuilder::new()
-                                .content("ユーザーをキックしました。".to_string())
-                                .build();
-                            let response = InteractionResponse {
-                                kind: InteractionResponseType::ChannelMessageWithSource,
-                                data: Some(data),
-                            };
-                            interaction_http
-                                .create_response(interaction.id, &interaction.token, &response)
-                                .await?;
+                    if interaction
+                        .member
+                        .clone()
+                        .unwrap()
+                        .permissions
+                        .unwrap()
+                        .contains(Permissions::KICK_MEMBERS)
+                    {
+                        match command.options.get(0).unwrap().value {
+                            CommandOptionValue::User(userid) => {
+                                client
+                                    .http
+                                    .remove_guild_member(interaction.guild_id.unwrap(), userid)
+                                    .await?;
+                                let data = InteractionResponseDataBuilder::new()
+                                    .content("ユーザーをキックしました。".to_string())
+                                    .build();
+                                let response = InteractionResponse {
+                                    kind: InteractionResponseType::ChannelMessageWithSource,
+                                    data: Some(data),
+                                };
+                                interaction_http
+                                    .create_response(interaction.id, &interaction.token, &response)
+                                    .await?;
+                            }
+                            _ => {}
                         }
-                        _ => {}
+                    } else {
+                        let data = InteractionResponseDataBuilder::new()
+                            .content("このコマンドは運営のみ使用できます。".to_string())
+                            .build();
+                        let response = InteractionResponse {
+                            kind: InteractionResponseType::ChannelMessageWithSource,
+                            data: Some(data),
+                        };
+                        interaction_http
+                            .create_response(interaction.id, &interaction.token, &response)
+                            .await?;
                     }
                 }
             }

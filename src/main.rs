@@ -77,12 +77,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 async fn create_application_commands(
     client: Arc<Client>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    /*
-    let application_id = {
-        let response = http.current_user_application().await?;
-        response.model().await?.id
-    };
-    */
     let interaction = client.http.interaction(client.application_id);
     let commands = [CommandBuilder::new("ping", "bot ping", CommandType::ChatInput).build()];
     interaction.set_global_commands(&commands).await?;

@@ -101,6 +101,7 @@ async fn handle_event(
                 return Ok(());
             }
             if msg.guild_id.is_none() {
+                // DM to moderator
                 let category_id: u64 = env::var("CATEGORY_ID")?.parse()?;
                 let parent_id: Id<ChannelMarker> = Id::new(category_id);
                 println!("{:?}", cache.iter().channels().count());
@@ -136,9 +137,11 @@ async fn handle_event(
                 let embed = EmbedBuilder::new()
                     .description(&msg.content)
                     .author(EmbedAuthorBuilder::new(msg.author.name.clone()).icon_url(image_source))
+                    .timestamp(msg.timestamp)
                     .build();
                 http.create_message(channel_id).embeds(&[embed])?.await?;
             } else {
+                // Moderator to DM
                 let parent_id = env::var("CATEGORY_ID")?.parse()?;
                 let parent_id: Id<ChannelMarker> = Id::new(parent_id);
                 let channel = cache.channel(msg.channel_id).unwrap();
@@ -160,6 +163,7 @@ async fn handle_event(
                                 EmbedAuthorBuilder::new("運営")
                                     .icon_url(ImageSource::url(icon_url)?),
                             )
+                            .timestamp(msg.timestamp)
                             .build();
                         http.create_message(channel.id).embeds(&[embed])?.await?;
                     }

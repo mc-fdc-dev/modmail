@@ -160,7 +160,7 @@ async fn handle_event(
                         let embed = EmbedBuilder::new()
                             .description(&msg.content)
                             .author(
-                                EmbedAuthorBuilder::new("運営")
+                                EmbedAuthorBuilder::new("運営(Moderator)")
                                     .icon_url(ImageSource::url(icon_url)?),
                             )
                             .timestamp(msg.timestamp)

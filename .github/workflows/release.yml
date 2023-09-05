@@ -22,7 +22,7 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
     - name: Build binary
       run: |
-        SQLX_OFFLINE=true cargo build -r
+        cargo build -r
         mv target/release/modmail modmail.bin
     - name: Release
       uses: softprops/action-gh-release@v1

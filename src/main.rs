@@ -261,24 +261,23 @@ async fn handle_event(
                         .unwrap()
                         .contains(Permissions::KICK_MEMBERS)
                     {
-                        match command.options.get(0).unwrap().value {
-                            CommandOptionValue::User(userid) => {
-                                client
-                                    .http
-                                    .remove_guild_member(interaction.guild_id.unwrap(), userid)
-                                    .await?;
-                                let data = InteractionResponseDataBuilder::new()
-                                    .content("ユーザーをキックしました。".to_string())
-                                    .build();
-                                let response = InteractionResponse {
-                                    kind: InteractionResponseType::ChannelMessageWithSource,
-                                    data: Some(data),
-                                };
-                                interaction_http
-                                    .create_response(interaction.id, &interaction.token, &response)
-                                    .await?;
-                            }
-                            _ => {}
+                        if let CommandOptionValue::User(userid) =
+                            command.options.get(0).unwrap().value
+                        {
+                            client
+                                .http
+                                .remove_guild_member(interaction.guild_id.unwrap(), userid)
+                                .await?;
+                            let data = InteractionResponseDataBuilder::new()
+                                .content("ユーザーをキックしました。".to_string())
+                                .build();
+                            let response = InteractionResponse {
+                                kind: InteractionResponseType::ChannelMessageWithSource,
+                                data: Some(data),
+                            };
+                            interaction_http
+                                .create_response(interaction.id, &interaction.token, &response)
+                                .await?;
                         }
                     } else {
                         let data = InteractionResponseDataBuilder::new()

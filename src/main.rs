@@ -4,15 +4,19 @@ use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{Event, Intents, Shard, ShardId};
 use twilight_http::Client as HttpClient;
 use twilight_model::{
-    application::{command::CommandType, interaction::InteractionData},
+    application::{
+        command::CommandType,
+        interaction::{InteractionData, application_command::CommandOptionValue},
+    },
     http::interaction::{InteractionResponse, InteractionResponseType},
     id::{
         marker::{ApplicationMarker, ChannelMarker, GuildMarker, UserMarker},
         Id,
     },
+    guild::Permissions,
 };
 use twilight_util::builder::{
-    command::CommandBuilder,
+    command::{CommandBuilder, UserBuilder},
     embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource},
     InteractionResponseDataBuilder,
 };
@@ -81,6 +85,9 @@ async fn create_application_commands(
     let commands = [
         CommandBuilder::new("ping", "bot ping", CommandType::ChatInput).build(),
         CommandBuilder::new("close", "close some ticket", CommandType::ChatInput).build(),
+        CommandBuilder::new("kick", "Kick some user", CommandType::ChatInput)
+            .option(UserBuilder::new("user", "user to kick").required(true))
+            .build(),
     ];
     interaction.set_global_commands(&commands).await?;
     Ok(())
@@ -246,6 +253,27 @@ async fn handle_event(
                         .http
                         .delete_channel(interaction.channel.clone().unwrap().id)
                         .await?;
+                } else if command.name == "kick" {
+                    let interaction_http = client.http.interaction(client.application_id);
+                    match command.options.get(0).unwrap().value {
+                        CommandOptionValue::User(userid) => {
+                            client
+                                .http
+                                .remove_guild_member(interaction.guild_id.unwrap(), userid)
+                                .await?;
+                            let data = InteractionResponseDataBuilder::new()
+                                .content("ユーザーをキックしました。".to_string())
+                                .build();
+                            let response = InteractionResponse {
+                                kind: InteractionResponseType::ChannelMessageWithSource,
+                                data: Some(data),
+                            };
+                            interaction_http
+                                .create_response(interaction.id, &interaction.token, &response)
+                                .await?;
+                        }
+                        _ => {}
+                    }
                 }
             }
         }

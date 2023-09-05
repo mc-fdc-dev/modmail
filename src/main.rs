@@ -264,19 +264,20 @@ async fn handle_event(
                         if let CommandOptionValue::User(userid) =
                             command.options.get(0).unwrap().value
                         {
+                            let response = InteractionResponse {
+                                kind: InteractionResponseType::DeferredChannelMessageWithSource,
+                                data: None,
+                            };
+                            interaction_http
+                                .create_response(interaction.id, &interaction.token, &response)
+                                .await?;
                             client
                                 .http
                                 .remove_guild_member(interaction.guild_id.unwrap(), userid)
                                 .await?;
-                            let data = InteractionResponseDataBuilder::new()
-                                .content("ユーザーをキックしました。".to_string())
-                                .build();
-                            let response = InteractionResponse {
-                                kind: InteractionResponseType::ChannelMessageWithSource,
-                                data: Some(data),
-                            };
                             interaction_http
-                                .create_response(interaction.id, &interaction.token, &response)
+                                .create_followup(&interaction.token)
+                                .content("<:ok_handbutflipped:779364331350523909>")?
                                 .await?;
                         }
                     } else {

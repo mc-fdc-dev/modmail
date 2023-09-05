@@ -11,3 +11,11 @@
 ```sh
 cargo run --release
 ```
+
+## 開発者向け
+
+### Linux => Windows
+以下を実行しなければいけません。
+```sh
+sudo apt install mingw-w64
+```

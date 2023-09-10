@@ -267,6 +267,7 @@ async fn handle_event(
                         .unwrap()
                         .contains(Permissions::KICK_MEMBERS)
                     {
+                        println!("Checked permissions");
                         if let CommandOptionValue::User(userid) =
                             command.options.get(0).unwrap().value
                         {
@@ -277,10 +278,12 @@ async fn handle_event(
                             interaction_http
                                 .create_response(interaction.id, &interaction.token, &response)
                                 .await?;
+                            println!("defer");
                             client
                                 .http
                                 .remove_guild_member(interaction.guild_id.unwrap(), userid)
                                 .await?;
+                            println!("removed");
                             interaction_http
                                 .create_followup(&interaction.token)
                                 .content("<:ok_handbutflipped:779364331350523909>")?

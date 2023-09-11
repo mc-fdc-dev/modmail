@@ -11,6 +11,6 @@ tokio = { version = "1.32.0", features = ["full"] }
 tracing = "0.1.37"
 twilight-cache-inmemory = "0.15.4"
 twilight-gateway = "0.15.4"
-twilight-http = "0.15.2"
+twilight-http = "0.15.4"
 twilight-model = "0.15.2"
 twilight-util = { version = "0.15.2", features = ["builder"] }

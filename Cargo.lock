@@ -1115,9 +1115,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.15.2"
+version = "0.15.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d78446cb5d7437d75d4ad6dd6c57319462497cadc4d694374f464e666aadd28"
+checksum = "0f5a9338cc26a6ffa77932c6386b227714e1a9b75f5cf644739d0c3605e19a95"
 dependencies = [
  "bitflags",
  "dashmap",

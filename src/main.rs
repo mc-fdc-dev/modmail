@@ -88,6 +88,9 @@ async fn create_application_commands(
         CommandBuilder::new("kick", "Kick some user", CommandType::ChatInput)
             .option(UserBuilder::new("user", "user to kick").required(true))
             .build(),
+        CommandBuilder::new("ban", "Ban some user", CommandType::ChatInput)
+            .option(UserBuilder::new("user", "user to ban user").required(true))
+            .build(),
     ];
     interaction.set_global_commands(&commands).await?;
     Ok(())

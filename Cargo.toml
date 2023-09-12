@@ -13,4 +13,4 @@ twilight-cache-inmemory = "0.15.4"
 twilight-gateway = "0.15.4"
 twilight-http = "0.15.4"
 twilight-model = "0.15.4"
-twilight-util = { version = "0.15.2", features = ["builder"] }
+twilight-util = { version = "0.15.4", features = ["builder"] }

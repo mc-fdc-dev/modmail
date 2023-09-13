@@ -25,7 +25,7 @@ use tokio::sync::Mutex;
 struct Client {
     pub http: Arc<HttpClient>,
     pub cache: Arc<InMemoryCache>,
-    pub shard: Mutex<Arc<Shard>>,
+    pub shard: Arc<Mutex<Shard>>,
     pub application_id: Id<ApplicationMarker>,
 }
 
@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         application_id,
     });
     create_application_commands(Arc::clone(&client)).await?;
-    let mut shard = shard_mutex.lock().await?;
+    let mut shard = shard_mutex.lock().await;
 
     loop {
         let event = match shard.next_event().await {
@@ -202,11 +202,11 @@ async fn handle_event(
             let interaction_http = client.http.interaction(client.application_id);
             if let Some(InteractionData::ApplicationCommand(command)) = &interaction.data {
                 if command.name == "ping" {
-                    let shard = client.shard.lock().await?;
+                    let shard = client.shard.lock().await;
                     let latency = shard.latency();
                     let average = latency.average().unwrap();
                     let data = InteractionResponseDataBuilder::new()
-                        .content(float!("Pong!\n{}", average.as_secs()).to_string())
+                        .content(format!("Pong!\n{}", average.as_secs()).to_string())
                         .build();
                     let response = InteractionResponse {
                         kind: InteractionResponseType::ChannelMessageWithSource,

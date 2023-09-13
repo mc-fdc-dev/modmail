@@ -1,5 +1,6 @@
 use dotenv::dotenv;
 use std::{env, error::Error, sync::Arc};
+use tokio::sync::Mutex;
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{Event, Intents, Shard, ShardId};
 use twilight_http::Client as HttpClient;
@@ -20,7 +21,6 @@ use twilight_util::builder::{
     embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource},
     InteractionResponseDataBuilder,
 };
-use tokio::sync::Mutex;
 
 struct Client {
     pub http: Arc<HttpClient>,

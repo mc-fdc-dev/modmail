@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let client = Arc::new(Client {
         http: Arc::clone(&http),
         cache: Arc::clone(&cache),
-        shard: Arc::clone(&shard_mutex),
+        shard: Arc::clone(&shard_lock),
         application_id,
     });
     create_application_commands(Arc::clone(&client)).await?;

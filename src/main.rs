@@ -24,6 +24,7 @@ use twilight_util::builder::{
 struct Client {
     pub http: Arc<HttpClient>,
     pub cache: Arc<InMemoryCache>,
+    pub shard: Arc<Shard>,
     pub application_id: Id<ApplicationMarker>,
 }
 
@@ -198,8 +199,10 @@ async fn handle_event(
             let interaction_http = client.http.interaction(client.application_id);
             if let Some(InteractionData::ApplicationCommand(command)) = &interaction.data {
                 if command.name == "ping" {
+                    let latency = client.shard.latency();
+                    let average = latency.average().unwrap();
                     let data = InteractionResponseDataBuilder::new()
-                        .content("Pong!".to_string())
+                        .content(float!("Pong!\n{}", average.as_secs()).to_string())
                         .build();
                     let response = InteractionResponse {
                         kind: InteractionResponseType::ChannelMessageWithSource,

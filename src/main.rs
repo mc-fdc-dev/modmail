@@ -20,11 +20,12 @@ use twilight_util::builder::{
     embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource},
     InteractionResponseDataBuilder,
 };
+use tokio::sync::Mutex;
 
 struct Client {
     pub http: Arc<HttpClient>,
     pub cache: Arc<InMemoryCache>,
-    pub shard: Arc<Shard>,
+    pub shard: Mutex<Arc<Shard>>,
     pub application_id: Id<ApplicationMarker>,
 }
 
@@ -38,7 +39,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         | Intents::MESSAGE_CONTENT
         | Intents::GUILDS;
 
-    let mut shard = Shard::new(ShardId::ONE, token.clone(), intents);
+    let shard_mutex = Arc::new(Mutex::new(Shard::new(ShardId::ONE, token.clone(), intents)));
 
     let http = Arc::new(HttpClient::new(token));
 
@@ -54,9 +55,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let client = Arc::new(Client {
         http: Arc::clone(&http),
         cache: Arc::clone(&cache),
+        shard: Arc::clone(&shard_mutex),
         application_id,
     });
     create_application_commands(Arc::clone(&client)).await?;
+    let mut shard = shard_mutex.lock().await?;
 
     loop {
         let event = match shard.next_event().await {
@@ -199,7 +202,8 @@ async fn handle_event(
             let interaction_http = client.http.interaction(client.application_id);
             if let Some(InteractionData::ApplicationCommand(command)) = &interaction.data {
                 if command.name == "ping" {
-                    let latency = client.shard.latency();
+                    let shard = client.shard.lock().await?;
+                    let latency = shard.latency();
                     let average = latency.average().unwrap();
                     let data = InteractionResponseDataBuilder::new()
                         .content(float!("Pong!\n{}", average.as_secs()).to_string())

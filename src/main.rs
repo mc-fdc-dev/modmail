@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let client = Arc::new(Client {
         http: Arc::clone(&http),
         cache: Arc::clone(&cache),
-        shard: Arc::clone(&shard),
+        shard: Arc::clone(&shard_mutex),
         application_id,
     });
     create_application_commands(Arc::clone(&client)).await?;
@@ -211,11 +211,12 @@ async fn handle_event(
                         .create_response(interaction.id, &interaction.token, &response)
                         .await?;
                     println!("defer");
-                    let latency = client.shard.latency();
+                    let shard = client.shard.lock().await;
+                    let latency = shard.latency();
                     let average = latency.average().unwrap();
                     interaction_http
                         .create_followup(&interaction.token)
-                        .content(format!("Pong!\n{}", average.as_secs()).to_string())?
+                        .content(format!("Pong!\n{}", average.as_secs()))?
                         .await?;
                 } else if command.name == "close" {
                     let parent_id: u64 = env::var("CATEGORY_ID")?.parse()?;

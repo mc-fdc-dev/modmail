@@ -1,6 +1,6 @@
 use dotenv::dotenv;
 use std::{env, error::Error, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{Event, Intents, Shard, ShardId};
 use twilight_http::Client as HttpClient;
@@ -25,7 +25,7 @@ use twilight_util::builder::{
 struct Client {
     pub http: Arc<HttpClient>,
     pub cache: Arc<InMemoryCache>,
-    pub shard: Arc<Mutex<Shard>>,
+    pub shard: Arc<RwLock<Shard>>,
     pub application_id: Id<ApplicationMarker>,
 }
 
@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         | Intents::MESSAGE_CONTENT
         | Intents::GUILDS;
 
-    let shard_mutex = Arc::new(Mutex::new(Shard::new(ShardId::ONE, token.clone(), intents)));
+    let shard_lock = Arc::new(RwLock::new(Shard::new(ShardId::ONE, token.clone(), intents)));
 
     let http = Arc::new(HttpClient::new(token));
 
@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     create_application_commands(Arc::clone(&client)).await?;
 
     loop {
-        let mut shard = shard_mutex.lock().await;
+        let shard = shard_lock.write().await;
         let event = match shard.next_event().await {
             Ok(event) => event,
             Err(source) => {
@@ -211,7 +211,7 @@ async fn handle_event(
                         .create_response(interaction.id, &interaction.token, &response)
                         .await?;
                     println!("defer");
-                    let shard = client.shard.lock().await;
+                    let shard = client.shard.read().await;
                     let latency = shard.latency();
                     let average = latency.average().unwrap();
                     interaction_http

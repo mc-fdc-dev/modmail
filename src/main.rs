@@ -32,6 +32,7 @@ struct Client {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     dotenv().ok();
+    env_logger::init();
     let token = env::var("DISCORD_TOKEN")?;
 
     let intents = Intents::GUILD_MESSAGES

@@ -20,11 +20,12 @@ use twilight_util::builder::{
     embed::{EmbedAuthorBuilder, EmbedBuilder, ImageSource},
     InteractionResponseDataBuilder,
 };
+use tokio::sync::Mutex;
 
 struct Client {
     pub http: Arc<HttpClient>,
     pub cache: Arc<InMemoryCache>,
-    pub shard: Arc<Shard>,
+    pub shard: Arc<Mutex<Shard>>,
     pub application_id: Id<ApplicationMarker>,
 }
 
@@ -39,7 +40,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         | Intents::MESSAGE_CONTENT
         | Intents::GUILDS;
 
-    let mut shard = Arc::new(Shard::new(ShardId::ONE, token.clone(), intents));
+    let shard_mutex = Arc::new(Mutex::new(Shard::new(ShardId::ONE, token.clone(), intents)));
 
     let http = Arc::new(HttpClient::new(token));
 
@@ -61,6 +62,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     create_application_commands(Arc::clone(&client)).await?;
 
     loop {
+        let shard = shard_mutex.lock().await;
         let event = match shard.next_event().await {
             Ok(event) => event,
             Err(source) => {
@@ -201,17 +203,19 @@ async fn handle_event(
             let interaction_http = client.http.interaction(client.application_id);
             if let Some(InteractionData::ApplicationCommand(command)) = &interaction.data {
                 if command.name == "ping" {
-                    let latency = client.shard.latency();
-                    let average = latency.average().unwrap();
-                    let data = InteractionResponseDataBuilder::new()
-                        .content(format!("Pong!\n{}", average.as_secs()).to_string())
-                        .build();
                     let response = InteractionResponse {
-                        kind: InteractionResponseType::ChannelMessageWithSource,
-                        data: Some(data),
+                        kind: InteractionResponseType::DeferredChannelMessageWithSource,
+                        data: None,
                     };
                     interaction_http
                         .create_response(interaction.id, &interaction.token, &response)
+                        .await?;
+                    println!("defer");
+                    let latency = client.shard.latency();
+                    let average = latency.average().unwrap();
+                    interaction_http
+                        .create_followup(&interaction.token)
+                        .content(format!("Pong!\n{}", average.as_secs()).to_string())?
                         .await?;
                 } else if command.name == "close" {
                     let parent_id: u64 = env::var("CATEGORY_ID")?.parse()?;

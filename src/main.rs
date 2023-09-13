@@ -59,10 +59,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         shard: Arc::clone(&shard_mutex),
         application_id,
     });
-    create_application_commands(Arc::clone(&client)).await?;
-    let mut shard = shard_mutex.lock().await;
+    create_application_commands(Arc::clone(&client)).await?
 
     loop {
+        let mut shard = shard_mutex.lock().await;
         let event = match shard.next_event().await {
             Ok(event) => event,
             Err(source) => {

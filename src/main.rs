@@ -216,7 +216,7 @@ async fn handle_event(
                     let average = latency.average().unwrap();
                     interaction_http
                         .create_followup(&interaction.token)
-                        .content(&format!("Pong!\n{}", average.as_secs()).to_string())?
+                        .content(&format!("Pong!\n{}", average.as_micros()).to_string())?
                         .await?;
                 } else if command.name == "close" {
                     let parent_id: u64 = env::var("CATEGORY_ID")?.parse()?;

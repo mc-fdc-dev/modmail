@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         | Intents::GUILDS;
 
     let shard_lock = Arc::new(RwLock::new(Shard::new(ShardId::ONE, token.clone(), intents)));
-    let shard_c_lock = lock.clone();
+    let shard_c_lock = shard_lock.clone();
 
     let http = Arc::new(HttpClient::new(token));
 

@@ -204,6 +204,7 @@ async fn handle_event(
             if let Some(InteractionData::ApplicationCommand(command)) = &interaction.data {
                 if command.name == "ping" {
                     let shard = client.shard.lock().await;
+                    println!("Unlock client.shard");
                     let latency = shard.latency();
                     let average = latency.average().unwrap();
                     let data = InteractionResponseDataBuilder::new()

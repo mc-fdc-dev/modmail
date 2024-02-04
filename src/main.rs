@@ -98,10 +98,10 @@ async fn create_application_commands(client: &Client) -> anyhow::Result<()> {
 async fn handle_event(
     event: Event,
     client: Arc<Client>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) -> anyhow::Result<()> {
     match event {
         Event::Ready(_) => {
-            println!("Shard is ready");
+            log::info!("Shard is ready");
         }
         Event::MessageCreate(msg) => {
             if msg.author.bot {
@@ -204,9 +204,19 @@ async fn handle_event(
                     interaction_http
                         .create_response(interaction.id, &interaction.token, &response)
                         .await?;
+                    log::debug!("Locking...");
                     let shard = client.shard.read().await;
                     let latency = shard.latency();
-                    let average = latency.average().unwrap();
+                    log::debug!("Locked");
+                    let average = if let Some(average) = latency.average() {
+                        average
+                    } else {
+                        interaction_http
+                            .create_followup(&interaction.token)
+                            .content("Ping failed")?
+                            .await?;
+                        return Ok(());
+                    };
                     interaction_http
                         .create_followup(&interaction.token)
                         .content(&format!("Pong!\n{}ms", average.as_millis()).to_string())?

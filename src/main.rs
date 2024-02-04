@@ -94,10 +94,7 @@ async fn create_application_commands(client: &Client) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_event(
-    event: Event,
-    client: Arc<Client>,
-) -> anyhow::Result<()> {
+async fn handle_event(event: Event, client: Arc<Client>) -> anyhow::Result<()> {
     match event {
         Event::Ready(_) => {
             log::info!("Shard is ready");

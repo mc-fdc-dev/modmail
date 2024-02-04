@@ -19,10 +19,13 @@ COPY . .
 RUN --mount=type=cache,target=/src/builder/target/ cargo build --target=$(cat /tmp/arch)-unknown-linux-musl --release && \
   cp target/$(cat /tmp/arch)-unknown-linux-musl/release/modmail /tmp/modmail
 
+FROM alpine:latest AS get-ssl
+
 FROM scratch
 
 WORKDIR /src/app
 
-COPY --from=builder /tmp/hello .
+COPY --from=get-ssl /etc/ssl/certs /etc/ssl/certs
+COPY --from=builder /tmp/modmail .
 
 CMD ["./modmail"]

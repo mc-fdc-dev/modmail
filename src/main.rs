@@ -23,14 +23,14 @@ use twilight_util::builder::{
 };
 
 struct Client {
-    pub http: Arc<HttpClient>,
-    pub cache: Arc<InMemoryCache>,
-    pub shard: Arc<RwLock<Shard>>,
+    pub http: HttpClient,
+    pub cache: InMemoryCache,
+    pub shard: RwLock<Shard>,
     pub application_id: Id<ApplicationMarker>,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn main() -> anyhow::Result<()> {
     dotenv().ok();
     env_logger::init();
     let token = env::var("DISCORD_TOKEN")?;
@@ -40,34 +40,30 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         | Intents::MESSAGE_CONTENT
         | Intents::GUILDS;
 
-    let shard_lock = Arc::new(RwLock::new(Shard::new(ShardId::ONE, token.clone(), intents)));
-    let shard_c_lock = shard_lock.clone();
+    let shard = RwLock::new(Shard::new(ShardId::ONE, token.clone(), intents));
 
-    let http = Arc::new(HttpClient::new(token));
+    let http = HttpClient::new(token);
 
-    let cache = Arc::new(
-        InMemoryCache::builder()
-            .resource_types(ResourceType::MESSAGE | ResourceType::CHANNEL | ResourceType::GUILD)
-            .build(),
-    );
+    let cache = InMemoryCache::builder()
+        .resource_types(ResourceType::MESSAGE | ResourceType::CHANNEL | ResourceType::GUILD)
+        .build();
     let application_id = {
         let response = http.current_user_application().await?;
         response.model().await?.id
     };
     let client = Arc::new(Client {
-        http: Arc::clone(&http),
-        cache: Arc::clone(&cache),
-        shard: Arc::clone(&shard_c_lock),
+        http,
+        cache,
+        shard,
         application_id,
     });
-    create_application_commands(Arc::clone(&client)).await?;
+    create_application_commands(&client).await?;
 
     loop {
-        let mut shard = shard_lock.write().await;
-        let event = match shard.next_event().await {
+        let event = match client.shard.write().await.next_event().await {
             Ok(event) => event,
             Err(source) => {
-                tracing::warn!(?source, "error receiving event");
+                log::warn!("error receiving event: {:?}", source);
 
                 if source.is_fatal() {
                     break;
@@ -76,17 +72,14 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 continue;
             }
         };
-        cache.update(&event);
-
+        client.cache.update(&event);
         tokio::spawn(handle_event(event, Arc::clone(&client)));
     }
 
     Ok(())
 }
 
-async fn create_application_commands(
-    client: Arc<Client>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn create_application_commands(client: &Client) -> anyhow::Result<()> {
     let interaction = client.http.interaction(client.application_id);
     let commands = [
         CommandBuilder::new("ping", "bot ping", CommandType::ChatInput).build(),
@@ -211,13 +204,12 @@ async fn handle_event(
                     interaction_http
                         .create_response(interaction.id, &interaction.token, &response)
                         .await?;
-                    println!("defer");
                     let shard = client.shard.read().await;
                     let latency = shard.latency();
                     let average = latency.average().unwrap();
                     interaction_http
                         .create_followup(&interaction.token)
-                        .content(&format!("Pong!\n{}", average.as_micros()).to_string())?
+                        .content(&format!("Pong!\n{}", average.as_millis()).to_string())?
                         .await?;
                 } else if command.name == "close" {
                     let parent_id: u64 = env::var("CATEGORY_ID")?.parse()?;

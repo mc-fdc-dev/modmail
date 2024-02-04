@@ -1,4 +1,3 @@
-use dotenv::dotenv;
 use std::{env, sync::Arc};
 use tokio::sync::RwLock;
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
@@ -31,7 +30,7 @@ struct Client {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    dotenv().ok();
+    dotenvy::dotenv().ok();
     env_logger::init();
     let token = env::var("DISCORD_TOKEN")?;
 

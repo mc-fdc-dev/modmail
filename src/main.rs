@@ -1,5 +1,5 @@
 use dotenv::dotenv;
-use std::{env, error::Error, sync::Arc};
+use std::{env, sync::Arc};
 use tokio::sync::RwLock;
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{Event, Intents, Shard, ShardId};

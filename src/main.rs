@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
         let event = match client.shard.write().await.next_event().await {
             Ok(event) => event,
             Err(source) => {
-                log::warn!("error receiving event: {:?}", source);
+                log::error!("error receiving event: {:?}", source);
 
                 if source.is_fatal() {
                     break;

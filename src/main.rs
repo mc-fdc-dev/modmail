@@ -275,7 +275,7 @@ async fn handle_event(
                     {
                         println!("Checked permissions");
                         if let CommandOptionValue::User(userid) =
-                            command.options.get(0).unwrap().value
+                            command.options.first().unwrap().value
                         {
                             let response = InteractionResponse {
                                 kind: InteractionResponseType::DeferredChannelMessageWithSource,

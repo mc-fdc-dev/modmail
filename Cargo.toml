@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = "1.0.79"
 dotenvy = "0.15.7"
 env_logger = "0.11.1"
-log = "0.4.20"
+log = "0.4.21"
 tokio = { version = "1.36.0", features = ["full"] }
 twilight-cache-inmemory = "0.15.4"
 twilight-gateway = "0.15.4"
